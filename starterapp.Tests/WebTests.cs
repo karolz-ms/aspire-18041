@@ -19,6 +19,9 @@ public class WebTests
             // Override the logging filters from the app's configuration
             logging.AddFilter(appHost.Environment.ApplicationName, LogLevel.Debug);
             logging.AddFilter("Aspire.", LogLevel.Debug);
+            // Surface the DCP (orchestrator) startup sequence so CI logs show exactly
+            // where startup hangs. See dotnet/aspire#18041.
+            logging.AddFilter("Aspire.Hosting.Dcp", LogLevel.Trace);
             // To output logs to the xUnit.net ITestOutputHelper, consider adding a package from https://www.nuget.org/packages?q=xunit+logging
         });
         appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
@@ -26,8 +29,12 @@ public class WebTests
             clientBuilder.AddStandardResilienceHandler();
         });
 
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
+        // Do not wrap BuildAsync/StartAsync in WaitAsync(DefaultTimeout): a short timeout
+        // masks the underlying DCP startup failure with a generic TimeoutException. Letting
+        // the operations run lets the real exception (e.g. Polly TimeoutRejectedException from
+        // KubernetesService.EnsureKubernetesAsync) propagate into the test results.
+        await using var app = await appHost.BuildAsync(cancellationToken);
+        await app.StartAsync(cancellationToken);
 
         // Act
         var httpClient = app.CreateHttpClient("webfrontend");
