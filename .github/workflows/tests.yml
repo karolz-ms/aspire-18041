@@ -20,6 +20,7 @@ jobs:
   test:
     name: Run tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -34,12 +35,17 @@ jobs:
         run: dotnet restore ./starterapp.Tests/starterapp.Tests.csproj
 
       - name: Test
+        # --blame-hang-timeout bounds each test: if it runs longer than 3 minutes the
+        # test host is terminated (so a stalled run cannot hang the job) and a full
+        # process dump is collected for diagnosis.
         run: >
           dotnet test ./starterapp.Tests/starterapp.Tests.csproj
           --no-restore
           --configuration ${{ inputs.configuration }}
           --logger "trx;LogFileName=test-results.trx"
           --results-directory ./TestResults
+          --blame-hang-timeout 3m
+          --blame-hang-dump-type full
 
       - name: Publish test report
         uses: dorny/test-reporter@v3
@@ -54,5 +60,7 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: test-results
-          path: TestResults/*.trx
+          # Upload the whole results directory so hang dumps (*.dmp) and the blame
+          # sequence file are captured alongside the TRX when a run stalls.
+          path: TestResults/
           if-no-files-found: error
