@@ -40,6 +40,7 @@ jobs:
           --no-restore
           --configuration ${{ inputs.configuration }}
           --logger "trx;LogFileName=test-results.trx"
+          --logger "console;verbosity=detailed"
           --results-directory ./TestResults
           --blame-hang-timeout 3m
           --blame-hang-dump-type full
