@@ -31,18 +31,6 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Trust HTTPS developer certificate
-        # The Aspire app serves its endpoints over the ASP.NET Core HTTPS dev cert,
-        # which is untrusted on a fresh runner. Without this the AppHost health-check
-        # and inter-service HTTP clients fail the TLS handshake (UntrustedRoot), the
-        # resources never report healthy, and the test times out. `--trust` is
-        # unreliable headless on Linux, so export the cert and add it to the OS trust
-        # store, which .NET's OpenSSL-based HttpClient honors.
-        run: |
-          dotnet dev-certs https --export-path "$RUNNER_TEMP/aspnetcore-dev-cert.crt" --format Pem --no-password
-          sudo cp "$RUNNER_TEMP/aspnetcore-dev-cert.crt" /usr/local/share/ca-certificates/aspnetcore-dev-cert.crt
-          sudo update-ca-certificates
-
       - name: Restore
         run: dotnet restore ./starterapp.Tests/starterapp.Tests.csproj
 
