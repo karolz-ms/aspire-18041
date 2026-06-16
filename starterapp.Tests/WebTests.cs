@@ -18,9 +18,6 @@ public class WebTests
             logging.AddFilter(appHost.Environment.ApplicationName, LogLevel.Debug);
             logging.AddFilter("Aspire.", LogLevel.Debug);
             logging.AddFilter("Aspire.Hosting.Dcp", LogLevel.Trace);
-            // Route logs to xUnit's ITestOutputHelper so they are captured per-test and
-            // surfaced by the runner. Without a sink like this the messages go nowhere
-            // visible: the OpenTelemetry exporter is inactive locally (no OTLP endpoint).
             logging.AddXUnit(testOutputHelper);
         });
         appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
