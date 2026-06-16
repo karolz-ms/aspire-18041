@@ -4,8 +4,6 @@ namespace starterapp.Tests;
 
 public class WebTests
 {
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
-
     [Fact]
     public async Task GetWebResourceRootReturnsOkStatusCode()
     {
@@ -26,19 +24,22 @@ public class WebTests
             clientBuilder.AddStandardResilienceHandler();
         });
 
-        // Do not wrap BuildAsync/StartAsync in WaitAsync(DefaultTimeout): a short timeout
-        // masks the underlying DCP startup failure with a generic TimeoutException. Letting
-        // the operations run lets the real exception (e.g. Polly TimeoutRejectedException from
-        // KubernetesService.EnsureKubernetesAsync) propagate into the test results.
-        await using var app = await appHost.BuildAsync(cancellationToken);
-        await app.StartAsync(cancellationToken);
+        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+        var logger = app.Services.GetRequiredService<ILogger<WebTests>>();
+
+        logger.LogInformation("Starting the application host...");
+        await app.StartAsync(cancellationToken).WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
 
         // Act
         var httpClient = app.CreateHttpClient("webfrontend");
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("webfrontend", cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/", cancellationToken);
+        logger.LogInformation("Waiting for the 'webfrontend' resource to become healthy...");
+        await app.ResourceNotifications.WaitForResourceHealthyAsync("webfrontend", cancellationToken).WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+
+        logger.LogInformation("Sending GET request to the root endpoint...");
+        var response = await httpClient.GetAsync("/", cancellationToken).WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
 
         // Assert
+        logger.LogInformation("Received response with status code: {StatusCode}", response.StatusCode);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }
