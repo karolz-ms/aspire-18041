@@ -1,0 +1,58 @@
+name: Tests
+
+# Run manually from the Actions tab in the GitHub web UI.
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: Build configuration to test
+        type: choice
+        default: Release
+        options:
+          - Release
+          - Debug
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore ./starterapp.Tests/starterapp.Tests.csproj
+
+      - name: Test
+        run: >
+          dotnet test ./starterapp.Tests/starterapp.Tests.csproj
+          --no-restore
+          --configuration ${{ inputs.configuration }}
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory ./TestResults
+
+      - name: Publish test report
+        uses: dorny/test-reporter@v1
+        if: ${{ !cancelled() }}
+        with:
+          name: Test results
+          path: TestResults/*.trx
+          reporter: dotnet-trx
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: error
