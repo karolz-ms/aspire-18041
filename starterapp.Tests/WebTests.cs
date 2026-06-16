@@ -11,13 +11,17 @@ public class WebTests
         var cancellationToken = TestContext.Current.CancellationToken;
 
         var appHost = await DistributedApplicationTestingBuilder.CreateAsync<Projects.starterapp_AppHost>(cancellationToken);
+        var testOutputHelper = TestContext.Current.TestOutputHelper!;
         appHost.Services.AddLogging(logging =>
         {
             logging.SetMinimumLevel(LogLevel.Debug);
             logging.AddFilter(appHost.Environment.ApplicationName, LogLevel.Debug);
             logging.AddFilter("Aspire.", LogLevel.Debug);
             logging.AddFilter("Aspire.Hosting.Dcp", LogLevel.Trace);
-            // To output logs to the xUnit.net ITestOutputHelper, consider adding a package from https://www.nuget.org/packages?q=xunit+logging
+            // Route logs to xUnit's ITestOutputHelper so they are captured per-test and
+            // surfaced by the runner. Without a sink like this the messages go nowhere
+            // visible: the OpenTelemetry exporter is inactive locally (no OTLP endpoint).
+            logging.AddXUnit(testOutputHelper);
         });
         appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
         {
